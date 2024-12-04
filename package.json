@@ -22,7 +22,6 @@
   "repository": "https://github.com/barthy-koeln/scroll-snap-slider",
   "author": "Barthy Bonhomme <post@barthy.koeln>",
   "license": "MIT",
-  "private": false,
   "devDependencies": {
     "@types/node": "^20.11.20",
     "@typescript-eslint/eslint-plugin": "^7.0.2",

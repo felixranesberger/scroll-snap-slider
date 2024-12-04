@@ -90,10 +90,15 @@ var ScrollSnapSlider = function(exports) {
       }
       requestAnimationFrame(() => {
         const { scrollLeft, offsetWidth, scrollWidth } = this.slider.element;
-        const isLastSlide = scrollLeft + offsetWidth === scrollWidth;
+        const isLastSlide = Math.abs(scrollLeft + offsetWidth - scrollWidth) <= 10;
         const target = isLastSlide ? 0 : this.slider.slide + 1;
         this.slider.slideTo(target);
       });
+    };
+    resetInterval = () => {
+      if (this.interval)
+        clearInterval(this.interval);
+      this.interval = setInterval(this.onInterval, this.intervalDuration);
     };
   }
   class ScrollSnapDraggable extends ScrollSnapPlugin {
@@ -432,6 +437,10 @@ var ScrollSnapSlider = function(exports) {
      */
     slideTo = (index) => {
       requestAnimationFrame(() => {
+        const autoplayPlugin = this.plugins.get("ScrollSnapAutoplay");
+        if (autoplayPlugin) {
+          autoplayPlugin.resetInterval();
+        }
         this.element.scrollTo({
           left: index * this.itemSize
         });
