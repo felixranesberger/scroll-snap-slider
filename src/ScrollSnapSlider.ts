@@ -144,6 +144,8 @@ export class ScrollSnapSlider {
    * Scroll to a slide by index.
    */
   public slideTo = (index: number) => {
+    const doesUserPreferReducedMotion = window.matchMedia('(prefers-reduced-motion)').matches
+
     requestAnimationFrame(() => {
       // reset autoplay interval when slide is changed and plugin is registered
       const autoplayPlugin = this.plugins.get('ScrollSnapAutoplay') as ScrollSnapAutoplay | undefined
@@ -152,7 +154,8 @@ export class ScrollSnapSlider {
       }
 
       this.element.scrollTo({
-        left: index * this.itemSize
+        left: index * this.itemSize,
+        behavior: doesUserPreferReducedMotion ? 'instant' : 'smooth',
       })
     })
   }

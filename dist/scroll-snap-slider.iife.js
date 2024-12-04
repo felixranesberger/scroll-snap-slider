@@ -436,13 +436,15 @@ var ScrollSnapSlider = function(exports) {
      * Scroll to a slide by index.
      */
     slideTo = (index) => {
+      const doesUserPreferReducedMotion = window.matchMedia("(prefers-reduced-motion)").matches;
       requestAnimationFrame(() => {
         const autoplayPlugin = this.plugins.get("ScrollSnapAutoplay");
         if (autoplayPlugin) {
           autoplayPlugin.resetInterval();
         }
         this.element.scrollTo({
-          left: index * this.itemSize
+          left: index * this.itemSize,
+          behavior: doesUserPreferReducedMotion ? "instant" : "smooth"
         });
       });
     };
