@@ -82,6 +82,11 @@ export class ScrollSnapSlider {
   private slideScrollLeft: number
 
   /**
+   * Function called to resume autoplay
+   */
+  private autoplayResumeCallback: () => void
+
+  /**
    * Bind methods and possibly attach listeners.
    */
   constructor (options: ScrollSnapSliderOptions) {
@@ -146,13 +151,19 @@ export class ScrollSnapSlider {
   public slideTo = (index: number) => {
     const doesUserPreferReducedMotion = window.matchMedia('(prefers-reduced-motion)').matches
 
-    requestAnimationFrame(() => {
-      // reset autoplay interval when slide is changed and plugin is registered
-      const autoplayPlugin = this.plugins.get('ScrollSnapAutoplay') as ScrollSnapAutoplay | undefined
-      if (autoplayPlugin) {
-        autoplayPlugin.resetInterval()
+    // reset autoplay timer when sliding animation is fully finished
+    const autoplayPlugin = this.plugins.get('ScrollSnapAutoplay') as ScrollSnapAutoplay | undefined
+    if (autoplayPlugin) {
+      // remove any existing event listener to avoid multiple event listeners
+      if (this.autoplayResumeCallback) {
+        this.element.removeEventListener('scrollend', this.autoplayResumeCallback)
       }
 
+      this.autoplayResumeCallback = autoplayPlugin.restartInterval.bind(autoplayPlugin)
+      this.element.addEventListener('scrollend', this.autoplayResumeCallback)
+    }
+
+    requestAnimationFrame(() => {
       this.element.scrollTo({
         left: index * this.itemSize,
         behavior: doesUserPreferReducedMotion ? 'instant' : 'smooth',
