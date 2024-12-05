@@ -9,6 +9,60 @@ var ScrollSnapSlider = function(exports) {
       this.slider = null;
     }
   }
+  class Timer {
+    timerId = null;
+    startTime = 0;
+    remainingTime = 0;
+    isRunning = false;
+    interval;
+    callback;
+    constructor(callback, interval = 5e3) {
+      this.callback = callback;
+      this.interval = interval;
+    }
+    start() {
+      if (!this.isRunning) {
+        this.isRunning = true;
+        this.startTime = Date.now();
+        this.scheduleNextTick();
+      }
+    }
+    stop() {
+      if (this.isRunning) {
+        this.isRunning = false;
+        if (this.timerId !== null) {
+          window.clearTimeout(this.timerId);
+          this.timerId = null;
+        }
+        this.remainingTime = this.interval - (Date.now() - this.startTime);
+      }
+    }
+    resume() {
+      if (!this.isRunning && this.remainingTime > 0) {
+        this.isRunning = true;
+        this.startTime = Date.now() - (this.interval - this.remainingTime);
+        this.scheduleNextTick();
+      } else if (!this.isRunning) {
+        this.start();
+      }
+    }
+    reset() {
+      this.stop();
+      this.remainingTime = 0;
+      this.startTime = 0;
+    }
+    scheduleNextTick() {
+      const nextTick = this.remainingTime || this.interval;
+      this.remainingTime = 0;
+      this.timerId = window.setTimeout(() => {
+        if (this.isRunning) {
+          this.callback();
+          this.startTime = Date.now();
+          this.scheduleNextTick();
+        }
+      }, nextTick);
+    }
+  }
   class ScrollSnapAutoplay extends ScrollSnapPlugin {
     /**
      * Duration in milliseconds between slide changes
@@ -23,9 +77,10 @@ var ScrollSnapSlider = function(exports) {
      */
     debounceId;
     /**
-     * Interval ID
+     * Timer instance to handle the interval
+     * @private
      */
-    interval;
+    timer;
     /**
      * Event names that temporarily disable the autoplay behaviour
      */
@@ -34,8 +89,8 @@ var ScrollSnapSlider = function(exports) {
       super();
       this.intervalDuration = intervalDuration;
       this.timeoutDuration = timeoutDuration;
-      this.interval = null;
       this.events = events;
+      this.timer = new Timer(this.onInterval, this.intervalDuration);
     }
     /**
      * @inheritDoc
@@ -50,7 +105,7 @@ var ScrollSnapSlider = function(exports) {
     enable = () => {
       this.debounceId && clearTimeout(this.debounceId);
       this.debounceId = null;
-      this.interval = setInterval(this.onInterval, this.intervalDuration);
+      this.timer.start();
       for (const event of this.events) {
         this.slider.addEventListener(event, this.disableTemporarily, { passive: true });
       }
@@ -63,8 +118,7 @@ var ScrollSnapSlider = function(exports) {
       for (const event of this.events) {
         this.slider.removeEventListener(event, this.disableTemporarily);
       }
-      this.interval && clearInterval(this.interval);
-      this.interval = null;
+      this.timer.stop();
       this.debounceId && clearTimeout(this.debounceId);
       this.debounceId = null;
     }
@@ -72,11 +126,7 @@ var ScrollSnapSlider = function(exports) {
      * Disable the autoplay behaviour and set a timeout to re-enable it.
      */
     disableTemporarily = () => {
-      if (!this.interval) {
-        return;
-      }
-      clearInterval(this.interval);
-      this.interval = null;
+      this.timer.stop();
       this.debounceId && clearTimeout(this.debounceId);
       this.debounceId = setTimeout(this.enable, this.timeoutDuration);
     };
@@ -95,11 +145,13 @@ var ScrollSnapSlider = function(exports) {
         this.slider.slideTo(target);
       });
     };
-    resetInterval = () => {
-      if (this.interval)
-        clearInterval(this.interval);
-      this.interval = setInterval(this.onInterval, this.intervalDuration);
-    };
+    /**
+     * Restart the interval
+     */
+    restartInterval() {
+      this.timer.reset();
+      this.timer.start();
+    }
   }
   class ScrollSnapDraggable extends ScrollSnapPlugin {
     /**
@@ -382,6 +434,10 @@ var ScrollSnapSlider = function(exports) {
      */
     slideScrollLeft;
     /**
+     * Function called to resume autoplay
+     */
+    autoplayResumeCallback;
+    /**
      * Bind methods and possibly attach listeners.
      */
     constructor(options) {
@@ -437,11 +493,15 @@ var ScrollSnapSlider = function(exports) {
      */
     slideTo = (index) => {
       const doesUserPreferReducedMotion = window.matchMedia("(prefers-reduced-motion)").matches;
-      requestAnimationFrame(() => {
-        const autoplayPlugin = this.plugins.get("ScrollSnapAutoplay");
-        if (autoplayPlugin) {
-          autoplayPlugin.resetInterval();
+      const autoplayPlugin = this.plugins.get("ScrollSnapAutoplay");
+      if (autoplayPlugin) {
+        if (this.autoplayResumeCallback) {
+          this.element.removeEventListener("scrollend", this.autoplayResumeCallback);
         }
+        this.autoplayResumeCallback = autoplayPlugin.restartInterval.bind(autoplayPlugin);
+        this.element.addEventListener("scrollend", this.autoplayResumeCallback);
+      }
+      requestAnimationFrame(() => {
         this.element.scrollTo({
           left: index * this.itemSize,
           behavior: doesUserPreferReducedMotion ? "instant" : "smooth"

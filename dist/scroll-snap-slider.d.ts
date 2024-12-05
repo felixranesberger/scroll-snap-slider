@@ -2,7 +2,7 @@ export declare class ScrollSnapAutoplay extends ScrollSnapPlugin {
     intervalDuration: number;
     timeoutDuration: number;
     private debounceId;
-    private interval;
+    private timer;
     private readonly events;
     constructor(intervalDuration?: number, timeoutDuration?: number, events?: string[]);
     get id(): string;
@@ -10,7 +10,7 @@ export declare class ScrollSnapAutoplay extends ScrollSnapPlugin {
     disable(): void;
     disableTemporarily: () => void;
     onInterval: () => void;
-    resetInterval: () => void;
+    restartInterval(): void;
 }
 
 export declare class ScrollSnapDraggable extends ScrollSnapPlugin {
@@ -61,6 +61,7 @@ export declare class ScrollSnapSlider {
     private resizeObserver;
     private scrollTimeoutId;
     private slideScrollLeft;
+    private autoplayResumeCallback;
     constructor(options: ScrollSnapSliderOptions);
     with(plugins: ScrollSnapPlugin[], enabled?: boolean): ScrollSnapSlider;
     attachListeners(): void;
